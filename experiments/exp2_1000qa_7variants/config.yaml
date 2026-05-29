@@ -1,0 +1,166 @@
+# Experiment 2 — 1000 QA pairs, 7 variants (33% more extreme degradation)
+# Based on: exp1_250qa_7variants
+# All parameters identical to exp1 except where noted with # CHANGED.
+#
+# Design improvements over Exp 1:
+#   - 4× more QA pairs (250 → 1000) for stable SHAP estimates
+#   - 33% more extreme degradation to widen F1 and failure-rate signal gaps
+#   - Unified OpenRouter for all LLM calls (keywords + generation)
+#   - Phase split: retrieval cache (phase3a) + parallel generation (phase3b)
+#   - Resume script for partial-failure recovery (phase3b_resume.py)
+
+experiment:
+  name: exp2_1000qa_7variants
+  based_on: exp1_250qa_7variants
+  run_date: "2026-05-09"
+  total_rows: 7000            # 1000 questions × 7 variants
+
+data:
+  graph: data/subsets/sp20_sample.pkl
+  qa_file: data/finreflectkgqa/production_exp2_1000.jsonl
+  qa_count: 1000
+  qa_sources:
+    reused_from_exp1: data/finreflectkgqa/production_final.jsonl   # 250 pairs
+    newly_generated: data/finreflectkgqa/production_additional_750.jsonl  # 750 pairs
+  degraded_graphs_dir: data/subsets/degraded_exp2/
+  exp1_degraded_graphs_preserved_at: data/subsets/degraded_exp1/  # renamed before exp2 generation
+
+models:
+  qa_generation:
+    provider: google
+    model: gemini-2.5-pro
+    library: google-generativeai
+  keyword_extraction:
+    provider: openrouter       # CHANGED from exp1 (was Anthropic)
+    model: deepseek/deepseek-chat
+    env_var: GENERATION_PROVIDER=openrouter
+  answer_generation:
+    provider: openrouter
+    model: deepseek/deepseek-chat
+    env_var: GENERATION_PROVIDER=openrouter
+
+generation:
+  parallel_workers: 10
+  max_retries: 3
+  retry_base_delay_sec: 5
+
+retrieval:
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2  # unchanged
+  k_seeds: 3
+  hops: 3
+  max_edges: 250
+  seed_max_total: 15
+  hop_thresholds:
+    hop_0: 0.30
+    hop_1_plus: 0.15
+  answer_description_boost: 0.10
+  edge_emb_cache: true
+
+degradation:
+  scale_factor: 1.33          # CHANGED: all non-zero rates × 1.33 vs exp1
+  random_seed: 42
+  variants:
+    light_mix:
+      missing_properties: 0.200   # exp1: 0.150
+      duplicate_entities: 0.027   # exp1: 0.020
+      flipped_relations: 0.007    # exp1: 0.005
+      orphan_subgraphs: 0.007     # exp1: 0.005
+    moderate_mix:
+      missing_properties: 0.366   # exp1: 0.275
+      duplicate_entities: 0.067   # exp1: 0.050
+      flipped_relations: 0.023    # exp1: 0.018
+      orphan_subgraphs: 0.007     # exp1: 0.005
+    heavy_mix:
+      missing_properties: 0.532   # exp1: 0.400
+      duplicate_entities: 0.106   # exp1: 0.080
+      flipped_relations: 0.040    # exp1: 0.030
+      orphan_subgraphs: 0.013     # exp1: 0.010
+    ablation_schema:
+      missing_properties: 0.532   # exp1: 0.400
+      duplicate_entities: 0.000
+      flipped_relations: 0.000
+      orphan_subgraphs: 0.000
+    ablation_resolution:
+      missing_properties: 0.000
+      duplicate_entities: 0.106   # exp1: 0.080
+      flipped_relations: 0.000
+      orphan_subgraphs: 0.000
+    ablation_fragmentation:
+      missing_properties: 0.000
+      duplicate_entities: 0.000
+      flipped_relations: 0.000
+      orphan_subgraphs: 0.013     # exp1: 0.010
+
+analysis:
+  # Regression: predict delta_f1 (graph-quality signal, question difficulty removed)
+  regression:
+    model: lightgbm
+    task: regression
+    target: delta_f1
+    formulation: delta            # Δfeature = feature(degraded) − feature(clean)
+    cv_folds: 5
+    lightgbm_params:
+      num_leaves: 31
+      learning_rate: 0.05
+      n_estimators: 500           # with early stopping (patience=50)
+      subsample: 0.8
+      colsample_bytree: 0.8
+      min_child_samples: 10
+      random_state: 42
+  # Classifier: predict caused_failure = (f1_clean > 0) & (f1_degraded == 0)
+  # Captures queries that became completely unanswerable due to degradation.
+  binary_classifier:
+    model: lightgbm
+    task: classification
+    target: caused_failure
+    class_imbalance: is_unbalance=True
+    metric: auc
+  features:
+    - node_count
+    - edge_count
+    - seed_count
+    - seed_confidence_mean
+    - seed_ambiguity
+    - density
+    - avg_degree
+    - component_count
+    - clustering_coeff
+    - diameter
+    - betweenness_mean
+    - property_fill_rate
+    - entity_diversity
+    - property_diversity
+    - relation_diversity
+
+infrastructure:
+  compute:
+    instance: graph-diag-runner
+    zone: us-central1-a
+    project: aveva-poc-478706
+    machine_type: N1-Standard-4 + T4 GPU
+  deploy: bash deploy.sh
+  pipeline: bash remote_pipeline_exp2.sh
+  results_files:
+    retrieval_cache: experiments/runs/exp2_retrieval_cache.parquet
+    results_csv: experiments/runs/exp2_phase3_dataset.csv
+    log: experiments/runs/pipeline_exp2_<timestamp>.log
+
+results:
+  status: in_progress            # update when exp2 run completes
+  # Populate after run. Reference exp1 values for comparison:
+  # exp1_overall_mean_f1: 0.637
+  # exp1_clean_failure_rate: 0.166
+  # exp1_heavy_failure_rate: 0.270
+  # exp1_heavy_extra_failures_per_1000: 104
+  overall_mean_f1: null
+  by_variant:
+    clean: null
+    light_mix: null
+    moderate_mix: null
+    heavy_mix: null
+    ablation_schema: null
+    ablation_resolution: null
+    ablation_fragmentation: null
+  failure_rate_by_variant:
+    clean: null
+    heavy_mix: null

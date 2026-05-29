@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Secrets
+.env
+*.pem
+*.key
+*.p12
+secrets/
+
+# Data files (large, not included in repo)
+data/
+!data/.gitkeep
+*.parquet
+*.pkl
+*.pickle
+*.csv
+*.h5
+*.hdf5
+
+# Eval outputs
+evals/results/
+evals/runs/
+experiments/*/runs/
+experiments/*/results/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ruff
+.ruff_cache/
