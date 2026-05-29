@@ -27,7 +27,7 @@ env/
 secrets/
 
 # Data files (large, not included in repo)
-data/
+data/*
 !data/.gitkeep
 *.parquet
 *.pkl
