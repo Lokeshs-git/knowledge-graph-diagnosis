@@ -164,7 +164,7 @@ The main analysis notebook `experiments/exp2_1000qa_7variants/exp2_analysis.ipyn
 4. Per-variant SHAP fingerprints for root-cause isolation
 5. Repair prioritization: which degradation type to fix first for maximum recovery
 
-See `docs/methodology/FEATURE_GUIDE.md` (internal) for the full feature definitions. The 15 features are:
+The 15 features extracted per subgraph are:
 
 - **Topology:** `node_count`, `edge_count`, `seed_count`, `seed_confidence_mean`, `seed_ambiguity`, `density`, `avg_degree`, `component_count`, `clustering_coeff`, `diameter`, `betweenness_mean`
 - **Schema/Heterogeneity:** `property_fill_rate`, `entity_diversity`, `property_diversity`, `relation_diversity`
