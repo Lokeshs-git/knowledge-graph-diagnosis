@@ -171,21 +171,6 @@ The 15 features extracted per subgraph are:
 
 ---
 
-## Citation
-
-```bibtex
-@article{anonymized2025kgdiagnosis,
-  author    = {[ANONYMIZED]},
-  title     = {Diagnosing Knowledge Graph Quality in {GraphRAG}: A Controlled
-               Degradation and {SHAP} Attribution Framework},
-  journal   = {IEEE Transactions on Knowledge and Data Engineering},
-  year      = {2025},
-  note      = {Under review}
-}
-```
-
----
-
 ## License
 
 MIT License. See [LICENSE](LICENSE).
