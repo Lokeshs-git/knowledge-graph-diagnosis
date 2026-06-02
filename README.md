@@ -162,12 +162,6 @@ data/
 
 ---
 
-## Citing this work
-
-If you use this framework in your research, please cite the relevant paper(s) listed in [`CITATION.cff`](CITATION.cff).
-
----
-
 ## License
 
 MIT License. See [LICENSE](LICENSE).
