@@ -1,17 +1,46 @@
 # kg-diagnosis
 
-A diagnostic framework for GraphRAG systems that attributes answer-quality failures to specific knowledge graph (KG) defects.
+An ML-based diagnostic framework for assessing knowledge graph (KG) structural quality in GraphRAG systems.
 
-Given a KG-backed retrieval-augmented generation pipeline, `kg-diagnosis` helps you answer: *which structural or semantic properties of the graph are causing query failures, and which repairs recover the most?*
+Given a KG-backed retrieval-augmented generation pipeline, `kg-diagnosis` identifies *which structural properties of the graph are causing query failures* and produces an engineering priority table ranking maintenance actions by failures recovered per 1,000 queries.
+
+The framework operates on structural primitives of any property graph. The source of degradation — data drift, incomplete updates, schema evolution, or merge errors — is immaterial to the diagnostic pipeline.
 
 ---
 
-## What it does
+## Framework
 
-- **Controlled degradation** — systematically injects four categories of real-world KG failure (schema decay, entity resolution failure, relational noise, topological fragmentation) at configurable severity levels
-- **Feature extraction** — computes 15 subgraph topology and schema-heterogeneity features per query at retrieval time
-- **Failure attribution** — trains a LightGBM classifier on those features and uses SHAP to identify which graph properties drive query failure
-- **Repair prioritization** — ranks degradation types by the number of failures recovered per fix, enabling targeted remediation
+The framework comprises three composable components applied sequentially:
+
+**1. Subgraph feature extraction**
+For each question and graph state, the retrieval module produces a subgraph. The framework extracts 15 structural features organized into three groups:
+
+| Group | Features |
+|-------|---------|
+| Topology | `node_count`, `edge_count`, `density`, `avg_degree`, `component_count`, `clustering_coeff`, `betweenness_mean`, `diameter` |
+| Retrieval | `seed_count`, `seed_confidence_mean`, `seed_ambiguity`, `property_fill_rate` |
+| Diversity | `entity_diversity`, `relation_diversity`, `property_diversity` |
+
+**2. Delta-formulation attribution**
+Rather than training on raw feature values — which conflates question difficulty with structural signal — the framework computes per-question feature deltas between a target KG state and a clean reference baseline. This removes the question-difficulty confound: each row in the resulting delta dataset measures the *marginal* structural change and its associated performance change.
+
+**3. Binary failure classification and engineering priority table**
+A LightGBM classifier trained on the delta dataset predicts whether a degraded variant causes a previously answerable question to fail completely (F1 = 0). SHAP attribution decomposes predictions into per-feature contributions. The terminal artifact is an **engineering priority table** mapping structural dimensions to failures recovered per 1,000 queries — a ranked maintenance roadmap for KG teams.
+
+---
+
+## Validation via controlled degradation
+
+To validate the framework's discriminative power, the repository includes a controlled degradation simulator that injects four categories of real-world KG failure at configurable severity levels:
+
+| Failure Mode | Description |
+|-------------|-------------|
+| Schema / attribute decay | Drop node properties with probability *r* |
+| Entity resolution failure | Create synthetic duplicate nodes with redistributed edges |
+| Semantic / relational noise | Reverse edge direction for fraction *r* of edges (negative control) |
+| Topological fragmentation | Delete fraction *r* of edges |
+
+Operators are seeded for reproducibility and composable: any combination can be applied in sequence with recorded severities.
 
 ---
 
@@ -21,10 +50,10 @@ Given a KG-backed retrieval-augmented generation pipeline, `kg-diagnosis` helps 
 kg-diagnosis/
 ├── src/
 │   ├── graph_diagnostic/          # Core library
-│   │   ├── attribution/           # LightGBM + SHAP failure attribution
+│   │   ├── attribution/           # LightGBM + SHAP failure classification
 │   │   ├── corruption/            # Controlled KG degradation simulator
 │   │   ├── evaluation/            # Answer quality metrics (F1, exact match)
-│   │   ├── features/              # Subgraph feature extractor (15 features)
+│   │   ├── features/              # 15-feature subgraph extractor
 │   │   └── pipeline/              # Retrieval and generation pipeline
 │   └── quickstart/                # LLMClient: unified Anthropic/OpenRouter/Gemini interface
 │
@@ -69,8 +98,8 @@ kg-diagnosis/
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/lokeshs-git/kg-diagnosis.git
-cd kg-diagnosis
+git clone https://github.com/Lokeshs-git/knowledge-graph-diagnosis.git
+cd knowledge-graph-diagnosis
 
 # 2. Set up environment variables
 cp .env.example .env
@@ -99,7 +128,7 @@ jupyter lab experiments/exp2_1000qa_7variants/exp2_analysis.ipynb
 
 ## Data
 
-Experiments use a **S&P 500 Top-20 subset** of [FinReflectKG](https://huggingface.co/datasets/weaviate/FinReflectKG), a financial knowledge graph. QA pairs are derived from entity-relationship paths in the graph.
+The included case study uses a **S&P 500 Top-20 subset** of [FinReflectKG](https://huggingface.co/datasets/weaviate/FinReflectKG), a financial knowledge graph. QA pairs are derived from 2-hop entity-relationship paths in the graph.
 
 Data files are **not included** in this repository due to size. The `tools/` directory contains scripts to regenerate all data artifacts:
 
@@ -130,30 +159,6 @@ data/
         ├── ablation_resolution.pkl
         └── ablation_fragmentation.pkl
 ```
-
----
-
-## Degradation Framework
-
-Four categories of KG failure at three mixed severity levels and three targeted ablations:
-
-| Variant | Schema Decay | Entity Resolution | Relational Noise | Topological Frag. |
-|---------|-------------|-------------------|------------------|-------------------|
-| `light_mix` | 20.0% | 2.7% | 0.7% | 0.7% |
-| `moderate_mix` | 36.6% | 6.7% | 2.3% | 0.7% |
-| `heavy_mix` | 53.2% | 10.6% | 4.0% | 1.3% |
-| `ablation_schema` | 53.2% | 0% | 0% | 0% |
-| `ablation_resolution` | 0% | 10.6% | 0% | 0% |
-| `ablation_fragmentation` | 0% | 0% | 0% | 1.3% |
-
----
-
-## Features
-
-The 15 features extracted per subgraph at retrieval time:
-
-- **Topology:** `node_count`, `edge_count`, `seed_count`, `seed_confidence_mean`, `seed_ambiguity`, `density`, `avg_degree`, `component_count`, `clustering_coeff`, `diameter`, `betweenness_mean`
-- **Schema / Heterogeneity:** `property_fill_rate`, `entity_diversity`, `property_diversity`, `relation_diversity`
 
 ---
 
