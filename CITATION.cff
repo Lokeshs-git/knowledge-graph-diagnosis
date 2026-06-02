@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite the relevant paper(s) below."
+title: "kg-diagnosis: A Diagnostic Framework for GraphRAG Knowledge Graph Quality"
+repository-code: "https://github.com/lokeshs-git/kg-diagnosis"
+license: MIT
+
+references:
+  - type: article
+    title: "Diagnosing Knowledge Graph Quality in GraphRAG: A Controlled Degradation and SHAP Attribution Framework"
+    authors:
+      - family-names: "[Author]"
+    journal: "IEEE Transactions on Knowledge and Data Engineering"
+    year: 2025
+    status: under-review
